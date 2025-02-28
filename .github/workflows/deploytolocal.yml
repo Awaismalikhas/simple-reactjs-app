@@ -36,13 +36,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Connect and Deploy to Local Machine via SSH
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.LOCAL_HOST }}
-          username: ${{ secrets.LOCAL_USER }}
-          key: ${{ secrets.LOCAL_SSH_PRIVATE_KEY }}
-          script: |
-            
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
-            docker run -d -p 3000:3000 --name my-app ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
+      - name: SSH and run commands
+        env:
+          PRIVATE_KEY: ${{ secrets.SSH_LOCAL_PRIVATE_KEY }} # Reference the private key stored in GitHub Secrets
+        run: |
+          echo "$PRIVATE_KEY" > private_key.pem 
+          chmod 600 private_key.pem
+          ssh -i private_key.pem ${{ secrets.LOCAL_USER  }}@${{ secrets.LOCAL_HOST }} 
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
+          docker run -d -p 3000:3000 --name my-app ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
