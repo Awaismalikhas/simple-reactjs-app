@@ -20,8 +20,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-
-     
       - name: Build and Tag Docker Image
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest .
@@ -33,15 +31,17 @@ jobs:
   deploy:
     name: Deploy to Local Machine
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
-      - name: SSH and run commands
-        env:
-          PRIVATE_KEY: ${{ secrets.SSH_LOCAL_PRIVATE_KEY }} # Reference the private key stored in GitHub Secrets
+      - name: Pull Docker Image
+        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
+
+      - name: Stop and Remove Existing Container
         run: |
-          echo "$PRIVATE_KEY" > private_key.pem 
-          chmod 600 private_key.pem
-          ssh -v -i private_key.pem ${{ secrets.LOCAL_USER  }}@${{ secrets.LOCAL_HOST }} 
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
+          docker stop my-app || true
+          docker rm my-app || true
+
+      - name: Run New Container
+        run: |
           docker run -d -p 3000:3000 --name my-app ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
