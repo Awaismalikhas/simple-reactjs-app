@@ -1,4 +1,5 @@
-name: SonarQube Scan
+name: SonarQube Analysis
+
 on:
   push:
     branches: [ master ]
@@ -6,19 +7,42 @@ on:
     branches: [ master ]
 
 jobs:
-  sonarqube-scan:
+  sonarqube:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Required for SonarQube to get full git history
+
+      - name: Verify SonarQube connection
+        run: |
+          echo "Testing connection to SonarQube server..."
+          SONAR_URL=$(echo "${{ secrets.SONAR_HOST_URL }}" | sed 's/\/$//')
+          curl -v "${SONAR_URL}" || echo "Connection failed"
+          ping -c 4 $(echo "${SONAR_URL}" | awk -F[/:] '{print $4}')
 
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@v3
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}  # Only for self-hosted
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}  # Format: http://your-domain:9000 or https://sonarcloud.io
         with:
           args: >
+            -Dsonar.verbose=true
             -Dsonar.projectKey=newproject
             -Dsonar.projectName=newproject
+            -Dsonar.projectVersion=1.0
+            -Dsonar.sources=src
+            -Dsonar.sourceEncoding=UTF-8
+            -Dsonar.scm.provider=git
+            -Dsonar.log.level=DEBUG
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          echo "SonarQube scan failed. Check the following:"
+          echo "1. SONAR_HOST_URL is accessible: ${{ secrets.SONAR_HOST_URL }}"
+          echo "2. SONAR_TOKEN has correct permissions"
+          echo "3. Project key 'newproject' exists in SonarQube"
+          echo "4. Server firewall allows inbound connections on port 9000"
